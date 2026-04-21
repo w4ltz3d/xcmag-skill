@@ -103,7 +103,9 @@ GET https://xcmag.com/wp-json/wp/v2/posts/{ID}?maxChars=25000
   .article-body hr{border:none;border-top:1px solid #eee;margin:20px 0}
   .article-body strong{color:#1a2e4a}
   .article-body figure{margin:16px 0;text-align:center}
-  .article-body figure img{max-width:100%;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+  .article-body figure img{max-width:100%;height:auto;display:block;margin:0 auto;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+  .article-body .wp-block-image img{max-width:100%;height:auto;display:block;margin:0 auto;border-radius:6px}
+  .article-body .wp-block-media-text img{max-width:100%;height:auto;display:block;border-radius:6px}
   .article-body figure figcaption{font-size:.78em;color:#888;margin-top:5px}
   .article-badge{display:inline-block;font-size:.7em;padding:2px 10px;border-radius:20px;margin-bottom:8px;color:white}
   .badge-adv{background:#2a5298}.badge-comp{background:#e67e22}.badge-news{background:#27ae60}
@@ -181,6 +183,28 @@ python3 ~/Library/Application\ Support/QClaw/openclaw/config/skills/qclaw-text-f
   --path "~/.qclaw/workspace/xcmag-issue{NNN}-digest.html" \
   --content-file "/tmp/_tw_xcmag_{NNN}.txt"
 ```
+
+## Step 5.5：清理 WordPress img 属性（防止图片拉伸）
+
+WordPress 原始 HTML 中的 `<img>` 标签含有 `height="..."` 和 `sizes="auto,..."` 属性，会导致图片被拉伸变形。生成 HTML 后必须用以下 Python 代码清理：
+
+```python
+import re
+
+def fix_img_tag(m):
+    tag = m.group(0)
+    # 移除 height 属性（让 CSS height:auto 生效）
+    tag = re.sub(r'\s+height="[^"]*"', '', tag)
+    # 移除破损的 sizes="auto,..." 属性
+    tag = re.sub(r'\s+sizes="auto[^"]*"', '', tag)
+    # 移除 srcset（可选，减少文件体积）
+    tag = re.sub(r'\s+srcset="[^"]*"', '', tag)
+    return tag
+
+html = re.sub(r'<img[^>]+>', fix_img_tag, html)
+```
+
+**根本原因**：浏览器遇到 `width="2560" height="1882"` 时会按这两个值强制渲染，即使容器宽度只有 800px，高度也会按比例放大，但 CSS 的 `max-width:100%` 只限制宽度、不限制高度，导致拉伸。移除 `height` 属性后，浏览器会根据实际渲染宽度自动计算高度。
 
 ## 已知问题与解决
 
